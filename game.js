@@ -1,59 +1,158 @@
+// the game itself
 var game;
-var wheel;
-var pin;
-var canSpin;
-var slices = 12;
-var prize;
 
-window.onload = function () {
-    game = new Phaser.Game(window.innerWidth, window.innerHeight, Phaser.CANVAS, "");
-    game.state.add("PlayGame", playGame);
-    game.state.start("PlayGame");
+var gameOptions = {
+
+    // wheel rotation duration, in milliseconds
+    rotationTime: 3000,
+
+    // wheel radius, in pixels
+    wheelRadius: 250
 }
 
-var playGame = function (game) {
-};
+// once the window loads...
+window.onload = function() {
 
-playGame.prototype = {
-    preload: function () {
-        game.load.image("wheel", "wheel.png");
-        game.load.image("pin", "pin.png");
-    },
+    // game configuration object
+    var gameConfig = {
 
-    create: function () {
-        game.stage.backgroundColor = "#FFFFFF";
-        wheel = game.add.sprite(game.width / 2, game.height / 2, "wheel");
-        wheel.width = game.width/ 2.2;
-        wheel.height = game.width/2.2;
-        wheel.anchor.set(0.5);
+        // render type
+       type: Phaser.CANVAS,
 
-        pin = game.add.sprite(game.width / 2, game.height / 2, "pin");
-        pin.height = 200;
-        pin.width=200;
+       // game width, in pixels
+       width: 500,
 
-        pin.anchor.set(0.5);
-        pin.inputEnabled = true;
+       // game height, in pixels
+       height: 500,
 
-        canSpin = true;
+       // game background color
+       backgroundColor: 0xffffff,
 
-        pin.events.onInputDown.add(this.spin, this);
-    },
+       // scenes used by the game
+       scene: [playGame]
+    };
 
-    spin(){
+    // game constructor
+    game = new Phaser.Game(gameConfig);
 
-        if (canSpin) {
-            var rounds = game.rnd.between(2, 4);
-            var degrees = game.rnd.between(0, 360);
-            prize = slices - 1 - Math.floor(degrees / (360 / slices));
-            canSpin = false;
-            var spinTween = game.add.tween(wheel).to({
-                angle: 360 * rounds + degrees
-            }, 3000, Phaser.Easing.Quadratic.Out, true);
+    // pure javascript to give focus to the page/frame and scale the game
+    window.focus()
+    resize();
+    window.addEventListener("resize", resize, false);
+}
 
-            spinTween.onComplete.add(this.winPrize, this);
+// PlayGame scene
+class playGame extends Phaser.Scene{
+
+    // constructor
+    constructor(){
+        super("PlayGame");
+    }
+
+    // method to be executed when the scene preloads
+    preload(){
+
+        // loading assets
+        this.load.image("pin", "heineken.png");
+        this.load.image('wheel', "wheel.png");
+    }
+
+    // method to be executed once the scene has been created
+    create(){
+
+
+        // making a graphic object without adding it to the game
+        var graphics = this.make.graphics({
+            x: 0,
+            y: 0,
+            add: false
+        });
+
+        
+
+        // generate a texture called "wheel" from graphics data
+        graphics.generateTexture("wheel", gameOptions.wheelRadius * 2, gameOptions.wheelRadius * 2);
+
+        // creating a sprite with wheel image as if it was a preloaded image
+        this.wheel = this.add.sprite(game.config.width / 2, game.config.height / 2, "wheel");
+
+
+        // adding the pin in the middle of the canvas
+        this.pin = this.add.sprite(game.config.width / 2, game.config.height / 2, "pin");
+       
+
+
+
+        // the game has just started = we can spin the wheel
+        this.canSpin = true;
+
+        // waiting for your input, then calling "spinWheel" function
+        this.input.on("pointerdown", this.spinWheel, this);
+    }
+
+    // function to spin the wheel
+    spinWheel(){
+
+        // can we spin the wheel?
+        if(this.canSpin){
+
+
+            // the wheel will spin round from 2 to 4 times. This is just coreography
+            var rounds = Phaser.Math.Between(2, 4);
+
+            // then will rotate by a random number from 0 to 360 degrees. This is the actual spin
+            var degrees = Phaser.Math.Between(0, 360);
+
+            // before the wheel ends spinning, we already know the prize according to "degrees" rotation and the number of slices
+            var prize = gameOptions.slices - 1 - Math.floor(degrees / (360 / gameOptions.slices));
+
+            // now the wheel cannot spin because it's already spinning
+            this.canSpin = false;
+
+            // animation tweeen for the spin: duration 3s, will rotate by (360 * rounds + degrees) degrees
+            // the quadratic easing will simulate friction
+            this.tweens.add({
+
+                // adding the wheel to tween targets
+                targets: [this.wheel],
+
+                // angle destination
+                angle: 360 * rounds + degrees,
+
+                // tween duration
+                duration: gameOptions.rotationTime,
+
+                // tween easing
+                ease: "Cubic.easeOut",
+
+                // callback scope
+                callbackScope: this,
+
+                // function to be executed once the tween has been completed
+                onComplete: function(tween){
+
+
+                    // player can spin again
+                    this.canSpin = true;
+                }
+            });
         }
-    },
-    winPrize(){
-        canSpin = true;
+    }
+}
+
+// pure javascript to scale the game
+function resize() {
+    var canvas = document.querySelector("canvas");
+    var windowWidth = window.innerWidth;
+    var windowHeight = window.innerHeight;
+    var windowRatio = windowWidth / windowHeight;
+    var gameRatio = game.config.width / game.config.height;
+    if(windowRatio < gameRatio){
+        canvas.style.width = windowWidth + "px";
+        canvas.style.height = (windowWidth / gameRatio) + "px";
+    }
+    else{
+        canvas.style.width = (windowHeight * gameRatio) + "px";
+        canvas.style.height = windowHeight + "px";
     }
 }
